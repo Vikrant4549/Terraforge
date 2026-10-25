@@ -5,36 +5,44 @@ data "aws_ami" "amazon_linux" {
 
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = ["al2023-ami-2023.*-x86_64"]
   }
 }
 
 // Create EC2
 resource "aws_instance" "app_server" {
-  ami           = data.aws_ami.amazon_linux.id
-  instance_type = "t2.micro"
-  subnet_id = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [ aws_security_group.terraforge_sg.id ]
-  iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
+  ami                         = data.aws_ami.amazon_linux.id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.public_subnet.id
+  vpc_security_group_ids      = [aws_security_group.terraforge_sg.id]
+  iam_instance_profile        = aws_iam_instance_profile.ec2_instance_profile.name
   associate_public_ip_address = true
   user_data_replace_on_change = true
 
+  metadata_options {
+    http_tokens   = "required" # enforce IMDSv2
+    http_endpoint = "enabled"
+  }
+
+  root_block_device {
+    encrypted = true
+  }
+
   user_data = <<-EOF
               #!/bin/bash
-              yum update -y
-              yum install -y docker aws-cli
-              systemctl start docker
-              systemctl enable docker
+              dnf update -y
+              dnf install -y docker aws-cli
+              systemctl enable --now docker
 
               # Login to ECR
-              aws ecr get-login-password --region us-east-1 | \
-              docker login --username AWS --password-stdin 444215322230.dkr.ecr.us-east-1.amazonaws.com
+              aws ecr get-login-password --region ${var.region} | \
+              docker login --username AWS --password-stdin ${local.registry}
 
               # Pull image
-              docker pull 444215322230.dkr.ecr.us-east-1.amazonaws.com/terraforge-app:v1
+              docker pull ${local.image}
 
               # Run container
-              docker run -d -p 80:3000 444215322230.dkr.ecr.us-east-1.amazonaws.com/terraforge-app:v1
+              docker run -d --restart unless-stopped -p 80:3000 ${local.image}
               EOF
 
   tags = {

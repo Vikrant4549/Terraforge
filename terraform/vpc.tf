@@ -69,7 +69,7 @@ resource "aws_route_table_association" "public_assoc" {
 // Security Group
 resource "aws_security_group" "terraforge_sg" {
   name        = "terraforge-sg"
-  description = "Allow HTTP and SSH"
+  description = "Allow HTTP"
   vpc_id      = aws_vpc.terraforge_vpc.id
 
   ingress {
