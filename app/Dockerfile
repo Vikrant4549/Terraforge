@@ -1,28 +1,21 @@
-# 1. Use official Node base image
-FROM node:18-alpine
+# ---- Stage 1: install production dependencies ----
+FROM node:24-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
 
-# 2. Set working directory inside container 
+# ---- Stage 2: runtime image ----
+FROM node:24-alpine
+ENV NODE_ENV=production
 WORKDIR /app
 
-# 3. Copy package files first
-COPY package*.json ./
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
-# 4. Install dependencies
-RUN npm install --production
-
-# 5. Copy rest of the application code
-COPY . . 
-
-# 6. Expose the port
+USER node
 EXPOSE 3000
 
-# 7. Start the application
-CMD ["npm", "start"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/health || exit 1
 
-
-# docker build - image
-# docker run - container
-# docker images
-# docker ps - will show running containers
-# docker tag terraforge-app terraforge-app:v1
-
+CMD ["node", "server.js"]

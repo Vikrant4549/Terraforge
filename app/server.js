@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000
 app.get("/", (req, res) => {
     res.json({
         message: "TerraForge application is running🚀",
-        hostname: os.hostname,
+        hostname: os.hostname(),
         uptime: process.uptime(),
         timestamp: new Date().toISOString()
     });
